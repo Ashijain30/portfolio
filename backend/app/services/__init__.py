@@ -7,7 +7,11 @@ from app.services.lead_service import (
     delete_lead,
     seed_leads_if_empty
 )
-from app.services.ai_service import generate_ai_response
+from app.services.ai_service import (
+    generate_ai_response,
+    analyze_lead_with_gemini,
+    build_lead_analysis_prompt
+)
 
 __all__ = [
     "get_all_leads",
@@ -16,5 +20,7 @@ __all__ = [
     "update_lead",
     "delete_lead",
     "seed_leads_if_empty",
-    "generate_ai_response"
+    "generate_ai_response",
+    "analyze_lead_with_gemini",
+    "build_lead_analysis_prompt"
 ]

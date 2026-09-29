@@ -1,10 +1,12 @@
-"""API router for Inbound Lead management with database persistence."""
+"""API router for Inbound Lead management with database persistence and AI analysis."""
 from typing import List, Dict
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from app.database import get_db
 from app.schemas.lead import LeadCreate, LeadUpdate, LeadResponse
-from app.services import lead_service
+from app.schemas.lead_analysis import LeadAnalysis
+from app.services import lead_service, ai_service
 
 router = APIRouter(
     prefix="/api/leads",
@@ -93,3 +95,43 @@ def delete_existing_lead(
             detail=f"Lead with id '{lead_id}' not found"
         )
     return {"message": f"Lead with id '{lead_id}' successfully deleted"}
+
+
+@router.post(
+    "/{lead_id}/analyze",
+    response_model=LeadAnalysis,
+    summary="Analyze lead with Gemini AI",
+    description="Fetch lead details from SQLite, generate structured qualification analysis using Gemini, and validate the output."
+)
+def analyze_lead(
+    lead_id: str,
+    db: Session = Depends(get_db)
+) -> LeadAnalysis:
+    """Analyze an existing inbound lead using Gemini and return validated qualification insights."""
+    lead = lead_service.get_lead_by_id(db, lead_id)
+    if not lead:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Lead with id '{lead_id}' not found"
+        )
+
+    try:
+        analysis = ai_service.analyze_lead_with_gemini(lead)
+        return analysis
+    except ValueError as e:
+        # Configuration error (e.g. missing API key)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+    except RuntimeError as e:
+        # Upstream AI failure or validation error
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"An unexpected error occurred during lead analysis: {str(e)}"
+        )
