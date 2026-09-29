@@ -5,8 +5,8 @@ from pydantic import BaseModel, Field, ConfigDict
 class LeadCreate(BaseModel):
     """Schema for validating inbound lead creation requests.
     
-    Contains only fields submitted by the client / salesperson during lead intake.
-    Server-generated attributes (like ID and timestamps) are deliberately excluded.
+    Contains only fields submitted by the client during lead intake.
+    Server-generated attributes (like ID) are excluded.
     """
     name: str = Field(
         ...,
@@ -52,10 +52,19 @@ class LeadCreate(BaseModel):
     )
 
 
+class LeadUpdate(LeadCreate):
+    """Schema for validating lead update (PUT) requests.
+    
+    Validates replacement of all core lead fields during edit.
+    """
+    pass
+
+
 class LeadResponse(BaseModel):
     """Schema for serializing lead data returned to API consumers.
     
     Includes the immutable server-generated ID alongside all confirmed lead details.
+    'from_attributes=True' enables automatic serialization from SQLAlchemy ORM objects.
     """
     id: str = Field(..., description="Unique lead identifier", examples=["lead-101"])
     name: str = Field(..., description="Full customer name")

@@ -1,15 +1,14 @@
-"""In-memory Lead Service.
+"""SQLAlchemy-backed Lead Service.
 
-Provides business operations for lead retrieval and creation.
-Acts as a decoupled service layer that will be swapped for SQLite / SQLAlchemy in Phase 4.
+Encapsulates all database persistence and querying logic for the Lead model.
 """
 from typing import List, Optional
-import uuid
-from app.schemas.lead import LeadCreate
+from sqlalchemy.orm import Session
+from app.models.lead import Lead
+from app.schemas.lead import LeadCreate, LeadUpdate
 
-
-# Initial realistic real-estate leads (in-memory storage for Phase 3)
-_INITIAL_LEADS = [
+# Initial realistic seed dataset for development and demos
+INITIAL_SEED_LEADS = [
     {
         "id": "lead-101",
         "name": "Rajesh Sharma",
@@ -57,41 +56,82 @@ _INITIAL_LEADS = [
     }
 ]
 
-# In-memory working collection
-_leads_db: List[dict] = [lead.copy() for lead in _INITIAL_LEADS]
+
+def get_all_leads(db: Session) -> List[Lead]:
+    """Retrieve all leads from SQLite, ordered with newest first."""
+    return db.query(Lead).all()
 
 
-def get_all_leads() -> List[dict]:
-    """Retrieve all leads from in-memory storage."""
-    return list(_leads_db)
+def get_lead_by_id(db: Session, lead_id: str) -> Optional[Lead]:
+    """Query a single lead by its primary key ID."""
+    return db.query(Lead).filter(Lead.id == lead_id).first()
 
 
-def get_lead_by_id(lead_id: str) -> Optional[dict]:
-    """Find and return a single lead by its unique identifier."""
-    for lead in _leads_db:
-        if lead["id"] == lead_id:
-            return lead
-    return None
+def create_lead(db: Session, lead_in: LeadCreate) -> Lead:
+    """Persist a new lead record into SQLite with automatic ID generation."""
+    db_lead = Lead(
+        name=lead_in.name.strip(),
+        location=lead_in.location.strip(),
+        property_requirement=lead_in.property_requirement.strip(),
+        budget=lead_in.budget.strip(),
+        buying_timeline=lead_in.buying_timeline.strip(),
+        customer_message=lead_in.customer_message.strip(),
+    )
+    try:
+        db.add(db_lead)
+        db.commit()
+        db.refresh(db_lead)
+        return db_lead
+    except Exception:
+        db.rollback()
+        raise
 
 
-def create_lead(lead_in: LeadCreate) -> dict:
-    """Create a new lead with a generated unique ID and store in-memory."""
-    new_id = f"lead-{uuid.uuid4().hex[:6]}"
-    lead_dict = {
-        "id": new_id,
-        "name": lead_in.name.strip(),
-        "location": lead_in.location.strip(),
-        "property_requirement": lead_in.property_requirement.strip(),
-        "budget": lead_in.budget.strip(),
-        "buying_timeline": lead_in.buying_timeline.strip(),
-        "customer_message": lead_in.customer_message.strip(),
-    }
-    # Prepend to simulate most recent first
-    _leads_db.insert(0, lead_dict)
-    return lead_dict
+def update_lead(db: Session, lead_id: str, lead_update: LeadUpdate) -> Optional[Lead]:
+    """Update all fields of an existing lead record."""
+    db_lead = get_lead_by_id(db, lead_id)
+    if not db_lead:
+        return None
+
+    db_lead.name = lead_update.name.strip()
+    db_lead.location = lead_update.location.strip()
+    db_lead.property_requirement = lead_update.property_requirement.strip()
+    db_lead.budget = lead_update.budget.strip()
+    db_lead.buying_timeline = lead_update.buying_timeline.strip()
+    db_lead.customer_message = lead_update.customer_message.strip()
+
+    try:
+        db.commit()
+        db.refresh(db_lead)
+        return db_lead
+    except Exception:
+        db.rollback()
+        raise
 
 
-def reset_leads_db() -> None:
-    """Helper for automated testing to reset in-memory state back to initial."""
-    global _leads_db
-    _leads_db = [lead.copy() for lead in _INITIAL_LEADS]
+def delete_lead(db: Session, lead_id: str) -> bool:
+    """Delete an existing lead record by ID. Returns True if deleted, False if not found."""
+    db_lead = get_lead_by_id(db, lead_id)
+    if not db_lead:
+        return False
+
+    try:
+        db.delete(db_lead)
+        db.commit()
+        return True
+    except Exception:
+        db.rollback()
+        raise
+
+
+def seed_leads_if_empty(db: Session) -> None:
+    """Idempotently seed initial demo leads if the table is currently empty."""
+    if db.query(Lead).count() == 0:
+        for seed_data in INITIAL_SEED_LEADS:
+            db_lead = Lead(**seed_data)
+            db.add(db_lead)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
