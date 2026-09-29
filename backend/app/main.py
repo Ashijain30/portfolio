@@ -1,4 +1,4 @@
-"""FastAPI application entry point for Masal AI Backend with SQLite persistence."""
+"""FastAPI application entry point for Masal AI Backend with SQLite and Gemini integration."""
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,6 +6,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.models import Lead  # Ensures Lead model is registered with Base metadata
 from app.routers.leads import router as leads_router
+from app.routers.ai import router as ai_router
 from app.services import lead_service
 
 
@@ -23,7 +24,6 @@ async def lifespan(app: FastAPI):
         db.close()
 
     yield
-    # Shutdown events can be placed here if needed
 
 
 app = FastAPI(
@@ -44,6 +44,7 @@ app.add_middleware(
 
 # Register modular API routers
 app.include_router(leads_router)
+app.include_router(ai_router)
 
 
 @app.get("/", tags=["System"])

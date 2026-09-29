@@ -7,6 +7,8 @@ class Settings(BaseSettings):
     """Central application settings loaded from environment variables."""
     PROJECT_NAME: str = "Masal AI - Lead Prioritization & Sales Assistant"
     DATABASE_URL: str = "sqlite:///./leads.db"
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-1.5-flash"
     BACKEND_HOST: str = "127.0.0.1"
     BACKEND_PORT: int = 8000
     CORS_ORIGINS: str = "http://localhost:5173"
