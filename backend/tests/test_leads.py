@@ -1,14 +1,71 @@
-"""Automated database-backed API tests for Lead CRUD endpoints."""
+"""Automated database-backed API tests with test database isolation."""
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.database import Base, get_db
+from app.main import app
+from app.models.lead import Lead
+from app.services.lead_service import INITIAL_SEED_LEADS
+
+# Isolated in-memory SQLite database dedicated exclusively to automated tests
+TEST_DATABASE_URL = "sqlite:///:memory:"
+
+test_engine = create_engine(
+    TEST_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool
+)
+
+TestingSessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=test_engine
+)
 
 
-def test_1_health_check_still_works(client):
+def override_get_db():
+    """Dependency override providing an isolated test database session."""
+    db = TestingSessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# Wire the dependency override into the FastAPI app
+app.dependency_overrides[get_db] = override_get_db
+
+client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def setup_and_teardown_db():
+    """Create fresh tables and seed data before each test, then drop all afterwards."""
+    Base.metadata.create_all(bind=test_engine)
+    db = TestingSessionLocal()
+    try:
+        for seed_data in INITIAL_SEED_LEADS:
+            db.add(Lead(**seed_data))
+        db.commit()
+    finally:
+        db.close()
+
+    yield
+
+    Base.metadata.drop_all(bind=test_engine)
+
+
+def test_1_health_check_still_works():
     """1. Health endpoint still works."""
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
 
 
-def test_2_get_leads_returns_database_records(client):
+def test_2_get_leads_returns_database_records():
     """2. GET /api/leads returns database records."""
     response = client.get("/api/leads")
     assert response.status_code == 200
@@ -20,7 +77,7 @@ def test_2_get_leads_returns_database_records(client):
     assert "lead-102" in ids
 
 
-def test_3_get_lead_by_valid_id(client):
+def test_3_get_lead_by_valid_id():
     """3. GET /api/leads/{id} returns an existing record."""
     response = client.get("/api/leads/lead-101")
     assert response.status_code == 200
@@ -30,7 +87,7 @@ def test_3_get_lead_by_valid_id(client):
     assert "Whitefield" in data["location"]
 
 
-def test_4_get_lead_by_invalid_id_returns_404(client):
+def test_4_get_lead_by_invalid_id_returns_404():
     """4. GET /api/leads/{invalid_id} returns 404."""
     response = client.get("/api/leads/non-existent-999")
     assert response.status_code == 404
@@ -39,7 +96,7 @@ def test_4_get_lead_by_invalid_id_returns_404(client):
     assert "not found" in data["detail"].lower()
 
 
-def test_5_post_leads_creates_database_record(client):
+def test_5_post_leads_creates_database_record():
     """5. POST /api/leads creates a database record."""
     payload = {
         "name": "Kavita Rao",
@@ -57,7 +114,7 @@ def test_5_post_leads_creates_database_record(client):
     assert data["budget"] == payload["budget"]
 
 
-def test_6_created_lead_can_subsequently_be_retrieved(client):
+def test_6_created_lead_can_subsequently_be_retrieved():
     """6. The created lead can subsequently be retrieved via GET."""
     payload = {
         "name": "Arjun Singhal",
@@ -78,7 +135,7 @@ def test_6_created_lead_can_subsequently_be_retrieved(client):
     assert get_res.json()["name"] == payload["name"]
 
 
-def test_7_put_leads_updates_record(client):
+def test_7_put_leads_updates_record():
     """7. PUT /api/leads/{id} updates a record."""
     update_payload = {
         "name": "Rajesh Sharma (Updated)",
@@ -100,7 +157,7 @@ def test_7_put_leads_updates_record(client):
     assert verify_res.json()["name"] == "Rajesh Sharma (Updated)"
 
 
-def test_8_delete_leads_removes_record(client):
+def test_8_delete_leads_removes_record():
     """8. DELETE /api/leads/{id} removes a record."""
     response = client.delete("/api/leads/lead-105")
     assert response.status_code == 200
@@ -113,7 +170,7 @@ def test_8_delete_leads_removes_record(client):
     assert len(list_res.json()) == 4
 
 
-def test_9_retrieving_deleted_lead_returns_404(client):
+def test_9_retrieving_deleted_lead_returns_404():
     """9. Retrieving a deleted lead returns 404."""
     # Delete lead-104
     del_res = client.delete("/api/leads/lead-104")
@@ -125,7 +182,7 @@ def test_9_retrieving_deleted_lead_returns_404(client):
     assert "not found" in get_res.json()["detail"].lower()
 
 
-def test_10_invalid_post_payload_returns_422(client):
+def test_10_invalid_post_payload_returns_422():
     """10. Invalid POST payload still returns 422."""
     # Missing required 'property_requirement' and 'budget'
     invalid_payload = {
