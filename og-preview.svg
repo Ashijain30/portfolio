@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#F7F1E7"/>
+  <rect x="40" y="40" width="1120" height="550" rx="24" fill="#FCF9F4" stroke="#E4D9C8" stroke-width="2"/>
+  <text x="100" y="150" fill="#6B4F3A" font-family="monospace" font-size="18" letter-spacing="4">
+    ASHI JAIN  /  DATA SCIENCE · AI / ML · DATA ANALYTICS
+  </text>
+  <text x="100" y="265" fill="#23170F" font-family="sans-serif" font-size="64" font-weight="bold">
+    I build data-driven products
+  </text>
+  <text x="100" y="345" fill="#23170F" font-family="sans-serif" font-size="64" font-weight="bold">
+    that turn information into decisions.
+  </text>
+  <text x="100" y="425" fill="#6B4F3A" font-family="sans-serif" font-size="26">
+    Final-year Computer Science student focused on Data Science, AI/ML and Data Analytics.
+  </text>
+  <text x="100" y="510" fill="#6B4F3A" font-family="monospace" font-size="20">
+    Python · SQL · LangChain · Google Gemini · FastAPI · Scikit-learn · Power BI
+  </text>
+</svg>
